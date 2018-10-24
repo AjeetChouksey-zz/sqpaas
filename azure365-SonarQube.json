@@ -1,0 +1,354 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {          
+  "environment": {
+    "type": "string",        
+    "metadata":{"description":"Environment"}
+  },      
+  "project": {
+    "type": "string",          
+    "metadata":{"description":"Name of the Project"}
+  },      
+  "hostingPlanName":{
+    "type": "string",
+    "metadata": {
+      "description":"App Service Hosting Plan Name"
+    }
+  },
+  "siteName":{
+    "type": "string",
+    "metadata": {
+    "description":"App Service Hosting Plan Name"
+    }
+  },
+  "appServiceKind":{
+    "type": "string",    
+    "defaultValue": "linux",  
+    "metadata": {
+      "description":"App Service Kind"
+    }
+  },
+  "webAppSKU":{
+    "type": "string",
+    "allowedValues": [
+      "F1",
+      "D1",
+      "B1",
+      "B2",
+      "B3",
+      "S1",
+      "S2",
+      "S3",
+      "P1",
+      "P2",
+      "P3",
+      "P4"
+    ],
+    "defaultValue": "B1",
+    "metadata": {
+      "description": "The pricing tier for the hosting plan."
+    }
+  },
+  "sqlAdmin":{
+    "type":"string",
+    "metadata": {"description":"SQL Server Admin Name"},
+    "defaultValue": "sqladmin"
+  },
+  "sqlAdminPassword":{
+    "type":"securestring",
+    "metadata": {"description":"Password for SQL Server Admin"}
+  },
+  "azureSqlServerName": {
+   "type": "string",
+    "metadata": { "description": "Azure SQL Database Server Instance Name for Service" }
+  },
+  "azureSqlDbName": {
+    "type": "string",
+    "metadata": { "description": "Azure SQL Database Name for Service" }
+  },
+  "azureSqlPerformanceLevelSKU": {
+    "type": "string",
+    "defaultValue": "S0",
+    "allowedValues": [
+      "B",
+      "S0",
+      "S1",
+      "S2",
+      "S3",
+      "S4",
+      "S6",
+      "S7",
+      "S9",
+      "S12",
+      "P1",
+      "P2",
+      "P4",
+      "P5",
+      "P6",
+      "P11",
+      "P15"
+    ],
+    "metadata": { "description": "Please Refer @ https://azure.microsoft.com/en-in/pricing/details/sql-database/single/" }
+  },
+  "azureSQLCollation": {
+    "type": "string",
+    "metadata": { "description": "Azure SQL Database Collation" }
+  },
+  "enableSQLServerAuditing": {
+    "type": "string",
+    "defaultValue": "Enabled",
+    "metadata": { "description": "Enable SQL server level auditing" }
+  },
+  "enableSQLServerThreatDetection": {
+    "type": "string",
+    "defaultValue": "Enabled",
+    "metadata": { "description": "Enable SQL server Threat Detection" }
+  },
+  "transparentDataEncryption": {
+    "type": "string",
+    "defaultValue": "Enabled",
+    "allowedValues": [
+      "Enabled",
+      "Disabled"
+    ],
+    "metadata": { "description": "Enable Transparent Data Encryption at Database Level" }
+  },
+  "serverLogRetentionDays": {
+    "type": "int",
+    "defaultValue": 1,
+    "metadata": { "description": "Number of days to keep server level audit and threat detaction logs" }
+  },
+  "emailAddresses": {
+    "type": "string",
+    "defaultValue": "abcd@efg.com",
+    "metadata": { "description": "Email address to send the threat information" }
+  },
+  "automaticTuning":{
+    "type": "string",
+    "defaultValue": "Enabled",
+    "allowedValues": [
+      "Enabled",
+      "Default",
+      "Disabled"
+    ],
+    "metadata": { "description": "Enable Automatic Tuning" }  
+  },
+  "auditingPolicies_Default_name": {
+    "defaultValue": "Default",
+    "type": "String"
+   }   
+  },
+  "variables": {
+    "config_web_name":"web",     
+    "siteName":"[concat(parameters('environment'),parameters('project'))]",
+    "storageAccountName":"[concat(parameters('environment'),parameters('project'),'logstr')]"
+  },
+  "resources": [    
+  {
+    "comments": "Create Hoting Plan",
+    "apiVersion": "2017-08-01",
+    "name": "[parameters('hostingPlanName')]",
+    "type": "Microsoft.Web/serverfarms",
+    "tags": {         
+        "Project": "[parameters('project')]",
+        "Environment": "[parameters('environment')]"
+    },
+    "location": "[resourceGroup().location]",
+    "properties": {
+      "name": "[parameters('hostingPlanName')]",
+      "workerSizeId": "1",
+      "reserved": true,
+      "numberOfWorkers": "1",
+      "hostingEnvironment": ""
+    },
+    "sku": {              
+      "Name":"[parameters('webAppSKU')]"     
+    },
+    "kind": "[parameters('appServiceKind')]"
+    },
+      {
+        "comments": "",
+        "type": "Microsoft.Storage/storageAccounts",
+        "sku": {
+            "name": "Standard_LRS"
+        },
+        "kind": "StorageV2",
+        "name": "[variables('storageAccountName')]",
+        "apiVersion": "2018-02-01",
+        "location": "[resourceGroup().location]",
+        "tags": {          
+            "Project": "[parameters('project')]",
+            "Environment": "[parameters('environment')]"  
+        },
+        "scale": null,
+        "properties": {
+            "isHnsEnabled": false,
+            "networkAcls": {
+                "bypass": "AzureServices",
+                "virtualNetworkRules": [],
+                "ipRules": [],
+                "defaultAction": "Allow"
+            },
+            "supportsHttpsTrafficOnly": true,
+            "encryption": {
+                "services": {
+                    "file": {
+                        "enabled": true
+                    },
+                    "blob": {
+                        "enabled": true
+                    }
+                },
+                "keySource": "Microsoft.Storage"
+            }
+        },
+        "dependsOn": []
+    },
+    {     
+      "type": "Microsoft.Sql/servers",
+      "kind": "v12.0",
+      "name": "[parameters('azureSqlServerName')]",
+      "apiVersion": "2015-05-01-preview",
+      "location": "[resourceGroup().location]",
+      "dependsOn": ["[resourceId('Microsoft.Storage/storageAccounts',variables('storageAccountName'))]"],
+      "properties": {
+        "administratorLogin": "[parameters('sqlAdmin')]",
+        "administratorLoginPassword": "[parameters('sqlAdminPassword')]",
+        "version": "12.0"
+      },
+      "resources":[
+          {
+              "type": "Microsoft.Sql/servers/firewallRules",
+              "name": "[concat(parameters('azureSqlServerName'), '/AllowAllMicrosoftAzureIps')]",
+              "apiVersion": "2015-05-01-preview",
+              "scale": null,
+              "properties": {
+                  "startIpAddress": "0.0.0.0",
+                  "endIpAddress": "0.0.0.0"
+              },
+              "dependsOn": [
+                  "[resourceId('Microsoft.Sql/servers', parameters('azureSqlServerName'))]"
+              ]
+          },
+          {
+              "type":"securityAlertPolicies",
+              "name": "DefaultSecurityAlert",
+              "apiVersion": "2017-03-01-preview",
+              "properties":{
+                  "state":"Enabled",
+                  "disableAlert":[],
+                  "emailAddress":"[parameters('emailAddresses')]",
+                  "emailAccountAdmins": true
+              },
+              "dependsOn":["[resourceId('Microsoft.Sql/servers', parameters('azureSqlServerName'))]"]
+          },
+          {               
+              "type": "Microsoft.Sql/servers/advisors",
+              "name": "[concat(parameters('azureSqlServerName'), '/', 'DropIndex')]",
+              "apiVersion": "2014-04-01",
+              "scale": null,
+              "properties": {
+                "autoExecuteValue": "[parameters('automaticTuning')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers', parameters('azureSqlServerName'))]"
+              ]              
+            },           
+            {
+              "apiVersion": "2015-05-01-preview",
+              "type": "auditingSettings",
+              "name": "Default",
+              "location": "[resourceGroup().location]",
+              "dependsOn": [
+                "[concat('Microsoft.Sql/servers/', parameters('azureSqlServerName'))]"
+              ],
+              "properties": {
+                "State": "Enabled",
+                "storageEndpoint": "[concat('https://',variables('storageAccountName'),'.blob.core.windows.net')]",
+                "storageAccountAccessKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value]",
+                "retentionDays": 0,
+                "eventTypesToAudit": "PlainSQL_Success,PlainSQL_Failure,ParameterizedSQL_Success,ParameterizedSQL_Failure,StoredProcedure_Success,StoredProcedure_Failure,Login_Success,Login_Failure,TransactionManagement_Success,TransactionManagement_Failure",
+                "auditActionsAndGroups": [ "SUCCESSFUL_DATABASE_AUTHENTICATION_GROUP", "DATABASE_LOGOUT_GROUP", "USER_CHANGE_PASSWORD_GROUP" ],
+                "storageAccountSubscriptionId": "[subscription().subscriptionId]",
+                "isStorageSecondaryKeyInUse": false
+              }
+            }
+      ]
+  },  
+  {
+    "name": "[concat(parameters('azureSqlServerName'), '/', parameters('azureSqlDbName'))]",
+    "apiVersion": "2017-03-01-preview",
+      "type": "Microsoft.Sql/servers/databases",
+      "sku": {
+          "name": "[parameters('azuresqlPerformanceLevelSKU')]"           
+      },
+      "kind": "v12.0,user",
+     
+      "location": "[resourceGroup().location]",
+      "scale": null,
+      "properties": {
+          "collation": "[parameters('azureSQLCollation')]",
+          "maxSizeBytes": 268435456000           
+      },
+      "dependsOn": [
+          "[resourceId('Microsoft.Sql/servers', parameters('azureSqlServerName'))]"
+      ],
+      "resources":[
+          {
+              "comments": "Transparent Data Encryption",
+              "name": "current",
+              "type": "transparentDataEncryption",
+              "apiVersion": "2014-04-01-preview",
+              "properties": {
+                "status": "[parameters('transparentDataEncryption')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers/databases', parameters('azureSqlServerName'), parameters('azureSqlDbName'))]"
+              ]
+            }
+      ]
+  },
+  {
+    "comments":"This is the Linux web app with the Sonarquebe Docker image",
+    "type": "Microsoft.Web/sites",
+    "name": "[parameters('siteName')]",     
+    "apiVersion": "2016-03-01",
+    "location": "[resourceGroup().location]",
+    "dependsOn": [],
+    "kind": "[parameters('appServiceKind')]",
+    "tags": {
+      
+     
+        "Environment": "[parameters('environment')]"
+
+    },
+     "properties": {
+      "siteConfig": {
+        "linuxFxVersion": "DOCKER|SONARQUBE"
+      },
+      "name": "[parameters('siteName')]",
+      "serverFarmId": "[parameters('hostingPlanName')]",
+      "hostingEnvironment": ""
+    },
+    "resources": [
+      {
+        "name": "appsettings",
+        "type": "config",
+        "apiVersion": "2015-08-01",
+        "dependsOn": [
+          "[resourceId('Microsoft.Web/sites', parameters('siteName'))]"
+        ],             
+      
+        "comments": "This are the generated settings for the Sonar jdbc connectionstring",
+        "properties": {
+          "SONARQUBE_JDBC_URL": "[concat(' jdbc:sqlserver://',parameters('azureSqlServerName'),'.database.windows.net:1433;database=',parameters('azureSqlDbName'),';user=',parameters('sqlAdmin'),'@',parameters('azureSqlServerName'),';password=',parameters('sqlAdminPassword'),';encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.database.windows.net;loginTimeout=30;')]",
+           "SONARQUBE_JDBC_USERNAME": "[parameters('sqlAdmin')]",
+          "SONARQUBE_JDBC_PASSWORD": "[parameters('sqlAdminPassword')]"
+        }
+      }
+    ]
+  }      
+],
+"outputs": { }
+}
