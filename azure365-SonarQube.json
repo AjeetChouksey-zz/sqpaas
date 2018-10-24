@@ -204,14 +204,14 @@
             }
         },
         "dependsOn": []
-    }, 
+    },
     {     
       "type": "Microsoft.Sql/servers",
       "kind": "v12.0",
       "name": "[parameters('azureSqlServerName')]",
       "apiVersion": "2015-05-01-preview",
       "location": "[resourceGroup().location]",
-      "dependsOn": [],
+      "dependsOn": ["[resourceId('Microsoft.Storage/storageAccounts',variables('storageAccountName'))]"],
       "properties": {
         "administratorLogin": "[parameters('sqlAdmin')]",
         "administratorLoginPassword": "[parameters('sqlAdminPassword')]",
@@ -279,76 +279,78 @@
   {
     "name": "[concat(parameters('azureSqlServerName'), '/', parameters('azureSqlDbName'))]",
     "apiVersion": "2017-03-01-preview",
-    "type": "Microsoft.Sql/servers/databases",
-    "sku": {
-      "name": "[parameters('azuresqlPerformanceLevelSKU')]"           
-    },
-    "kind": "v12.0,user",
-    "location": "[resourceGroup().location]",
-    "scale": null,
-    "properties": {
-      "collation": "[parameters('azureSQLCollation')]",
-      "maxSizeBytes": 268435456000           
-    },
-    "dependsOn": [
-      "[resourceId('Microsoft.Sql/servers', parameters('azureSqlServerName'))]"
-    ],
-    "resources":[
-    {
-      "comments": "Transparent Data Encryption",
-      "name": "current",
-      "type": "transparentDataEncryption",
-      "apiVersion": "2014-04-01-preview",
+      "type": "Microsoft.Sql/servers/databases",
+      "sku": {
+          "name": "[parameters('azuresqlPerformanceLevelSKU')]"           
+      },
+      "kind": "v12.0,user",
+     
+      "location": "[resourceGroup().location]",
+      "scale": null,
       "properties": {
-        "status": "[parameters('transparentDataEncryption')]"
+          "collation": "[parameters('azureSQLCollation')]",
+          "maxSizeBytes": 268435456000           
       },
       "dependsOn": [
-        "[resourceId('Microsoft.Sql/servers/databases', parameters('azureSqlServerName'), parameters('azureSqlDbName'))]"
+          "[resourceId('Microsoft.Sql/servers', parameters('azureSqlServerName'))]"
+      ],
+      "resources":[
+          {
+              "comments": "Transparent Data Encryption",
+              "name": "current",
+              "type": "transparentDataEncryption",
+              "apiVersion": "2014-04-01-preview",
+              "properties": {
+                "status": "[parameters('transparentDataEncryption')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers/databases', parameters('azureSqlServerName'), parameters('azureSqlDbName'))]"
+              ]
+            }
       ]
-    }
-   ]
-  },        
-    {
-      "comments":"This is the Linux web app with the Sonarquebe Docker image",
-      "type": "Microsoft.Web/sites",
-      "name": "[parameters('siteName')]",     
-      "apiVersion": "2016-03-01",
-      "location": "[resourceGroup().location]",
-      "dependsOn": [],
-      "kind": "[parameters('appServiceKind')]",
-      "tags": {
-        
-          "Team": "[parameters('team')]",
-          "Environment": "[parameters('environment')]",
+  },
+  {
+    "comments":"This is the Linux web app with the Sonarquebe Docker image",
+    "type": "Microsoft.Web/sites",
+    "name": "[parameters('siteName')]",     
+    "apiVersion": "2016-03-01",
+    "location": "[resourceGroup().location]",
+    "dependsOn": [],
+    "kind": "[parameters('appServiceKind')]",
+    "tags": {
+      
+     
+        "Environment": "[parameters('environment')]"
 
+    },
+     "properties": {
+      "siteConfig": {
+        "linuxFxVersion": "DOCKER|SONARQUBE"
       },
-       "properties": {
-        "siteConfig": {
-          "linuxFxVersion": "DOCKER|SONARQUBE"
-        },
-        "name": "[parameters('siteName')]",
-        "serverFarmId": "[parameters('hostingPlanName')]",
-        "hostingEnvironment": ""
-      },
-      "resources": [
-        {
-          "name": "appsettings",
-          "type": "config",
-          "apiVersion": "2015-08-01",
-          "dependsOn": [
-            "[resourceId('Microsoft.Web/sites', parameters('siteName'))]"
-          ],             
-        
-          "comments": "This are the generated settings for the Sonar jdbc connectionstring",
-          "properties": {
-            "SONARQUBE_JDBC_URL": "[concat(' jdbc:sqlserver://',parameters('azureSqlServerName'),'.database.windows.net:1433;database=',parameters('azureSqlDbName'),';user=',parameters('sqlAdmin'),'@',parameters('azureSqlServerName'),';password=',parameters('sqlAdminPassword'),';encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.database.windows.net;loginTimeout=30;')]",
-             "SONARQUBE_JDBC_USERNAME": "[parameters('sqlAdmin')]",
-            "SONARQUBE_JDBC_PASSWORD": "[parameters('sqlAdminPassword')]"
-          }
+      "name": "[parameters('siteName')]",
+      "serverFarmId": "[parameters('hostingPlanName')]",
+      "hostingEnvironment": ""
+    },
+    "resources": [
+      {
+        "name": "appsettings",
+        "type": "config",
+        "apiVersion": "2015-08-01",
+        "dependsOn": [
+          "[resourceId('Microsoft.Web/sites', parameters('siteName'))]"
+        ],             
+      
+        "comments": "This are the generated settings for the Sonar jdbc connectionstring",
+        "properties": {
+          "SONARQUBE_JDBC_URL": "[concat(' jdbc:sqlserver://',parameters('azureSqlServerName'),'.database.windows.net:1433;database=',parameters('azureSqlDbName'),';user=',parameters('sqlAdmin'),'@',parameters('azureSqlServerName'),';password=',parameters('sqlAdminPassword'),';encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.database.windows.net;loginTimeout=30;')]",
+           "SONARQUBE_JDBC_USERNAME": "[parameters('sqlAdmin')]",
+          "SONARQUBE_JDBC_PASSWORD": "[parameters('sqlAdminPassword')]"
         }
-      ]
-    }      
-          
+      }
+    ]
+  }      
+            
+    
      ],
     "outputs": { }
   }
